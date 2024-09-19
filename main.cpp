@@ -1,11 +1,10 @@
 #include "dataBase.h"
 
 int main() {
-
     dataBase db;
-
     std::string query;
-	std::cout << "% MEGATRON3000" << std::endl << "    Welcome to MEGATRON 3000!" << std::endl;
+
+    std::cout << "% MEGATRON3000" << std::endl << "    Welcome to MEGATRON 3000!" << std::endl;
 
     while (true) {
         std::cout << "& ";
@@ -14,10 +13,5 @@ int main() {
         db.parseAndExecuteQuery(query);
     }
 
-
-	return 0;
+    return 0;
 }
-
-// lectura de datos
-    // esquemas e instancias
-

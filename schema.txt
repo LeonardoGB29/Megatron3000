@@ -1,0 +1,2 @@
+employee # (id # INT # name # VARCHAR);
+employee # id # INT # name # VARCHAR;
