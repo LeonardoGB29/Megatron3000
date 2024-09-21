@@ -10,7 +10,7 @@ std::string removeChars(const std::string& str, char charToRemove) {
     return result;
 }
 
-std::string replaceWithSymbol(const std::string& input, char symbol) { // symbol =  ","
+std::string replaceWithSymbol(const std::string& input, char symbol) { // symbol =  "#"
     std::string result;
     bool insideQuotes = false;
 
@@ -20,7 +20,9 @@ std::string replaceWithSymbol(const std::string& input, char symbol) { // symbol
             result += c;
         }
         else if (c == ',' && !insideQuotes) {  //a,b,"a,b"
+            result += " ";
             result += symbol;
+            result += " ";
         }
         else {
             result += c;
@@ -133,8 +135,9 @@ std::string dataBase::selectRelation() {
     std::ifstream schemaFile("schema.txt");
     std::string line, relationName;
     bool found = false;
-    std::cout << "Escriba una relación: ";
+    std::cout << "Seleccion una relación: ";
     std::cin >> relationName;
+    std::cout << std::endl;
 
     while (std::getline(schemaFile, line)) {
         if (line.find(relationName) == 0) {
@@ -147,17 +150,45 @@ std::string dataBase::selectRelation() {
     return relationName;
 }
 
-bool dataBase::validateInstance(const std::string& schemaLine, const std::string& instance) { // en este punto la instancia ya esta generada, tengo que comprobar que 
-    
+bool dataBase::validateInstance(const std::string& schemaLine, const std::string& instance) { 
+    // en este punto la instancia ya esta generada, tengo que comprobar con el schema si cumple los requisitos
+
+    int schemaCount = 0, instanceCount = 0;
+    std::istringstream schemaStreamCount(schemaLine);
+    std::istringstream instanceStreamCount(instance);
+    std::string temp;
+
+    std::getline(schemaStreamCount, temp, '#');
+
+    while (std::getline(schemaStreamCount, temp, '#')) {
+        std::getline(schemaStreamCount, temp, '#');
+        schemaCount++;
+    }
+
+    while (std::getline(instanceStreamCount, temp, '#')) {
+        instanceCount++;
+    }
+
+    if (schemaCount != instanceCount) {
+        std::cerr << "Numero de atributos del registro no coincide con el esquema" << std::endl << std::endl;
+        return false;
+    }
+
     std::istringstream schemaStream(schemaLine);
     std::istringstream instanceStream(instance);
     std::string schemaPart, instanceValue;
-        
-    std::getline(schemaStream, schemaPart, '#');
+    
+    std::getline(schemaStream, schemaPart, '#'); // pasar el nombre de la relacion
 
     while (std::getline(schemaStream, schemaPart, '#') && std::getline(instanceStream, instanceValue, '#')) {
 
-        std::getline(schemaStream, schemaPart, '#');
+        std::getline(schemaStream, schemaPart, '#'); // pasar el nombre del atributo
+
+        std::cout << instanceValue << std::endl;
+
+        if (instanceValue.empty()) {
+            continue;
+        }
 
         if (schemaPart == "INT") {
             for (char c : instanceValue) {
@@ -183,10 +214,7 @@ bool dataBase::validateInstance(const std::string& schemaLine, const std::string
                 return false;
         }
 
-        else if (schemaPart == "VARCHAR") {
-            if (instanceValue.empty()) 
-                return false;
-        }
+        else if (schemaPart == "STR") {}
 
         else if (schemaPart == "BOOL") {
             if (!(instanceValue == "0" || instanceValue == "1" ||
@@ -200,13 +228,12 @@ bool dataBase::validateInstance(const std::string& schemaLine, const std::string
     return true;
 }
 
-void dataBase::uploadInstances(const std::string& data, const char& symbol) {
+void dataBase::uploadInstances(const std::string& data, const char& symbol) { // symbol = caracter que separa los registros
     std::ifstream schemaFile("schema.txt");
     std::string schemaLine, instanceFile, relationName;
 
-    displayRelations();
-    relationName = selectRelation();
-
+    displayRelations(); // mostrar todas la relations
+    relationName = selectRelation(); // escribes una relation
 
     while (std::getline(schemaFile, schemaLine)) {
         if (schemaLine.find(relationName) == 0) {
@@ -222,21 +249,27 @@ void dataBase::uploadInstances(const std::string& data, const char& symbol) {
 
     std::ofstream outputFile(relationName, std::ios::app);
 
+    std::getline(instancesFile, instance); // salto la primer linea (nombre de la columnas)
+
     while (std::getline(instancesFile, instance)) {
 
         instance = replaceWithSymbol(instance, '#');
 
+        //schemaLine = linea de esquema correspondiente a la relacion
+        // instance = instancia generada, separa por #
+
         if (validateInstance(schemaLine, instance)) {
-            outputFile << instance << std::endl;
+            outputFile << instance << std::endl;  // Si es válida, se guarda
             std::cout << "Instancia válida: " << instance << std::endl;
-        }
-        else {
-            std::cout << "Instancia inválida: " << instance << std::endl;
+        } else {
+            std::cout << "Instancia inválida: " << instance << std::endl;  // Si es inválida, no se guarda
         }
     }
+
     instancesFile.close();
     outputFile.close();
 }
+
 
 
 
@@ -255,7 +288,7 @@ void dataBase::showMenu() {
         case 1: {
 
             std::string query;
-            std::cout << "% MEGATRON3000" << std::endl << "    Welcome to MEGATRON 3000!" << std::endl;
+            std::cout << "\n% MEGATRON3000" << std::endl << "    Welcome to MEGATRON 3000!" << std::endl;
 
             do {
                 std::cout << "& ";
@@ -270,12 +303,11 @@ void dataBase::showMenu() {
 
             std::string name;
             char symbol;
-            std::cout << "Ingrese el nombre del archivo (con extensión): ";
+            std::cout << "Ingrese el nombre del archivo (con extension): ";
             std::cin >> name;
             std::cout << std::endl <<"Con que caracter esta separado? ";
             std::cin >> symbol;
             std::cout << std::endl;
-            //error cuando se mande otro char que no sea con el que se separa 
             uploadInstances(name, symbol);
             break;
         }
@@ -283,7 +315,7 @@ void dataBase::showMenu() {
             std::cout << "Saliendo del programa..." << std::endl;
             break;
         default:
-            std::cout << "Opción no válida, intente de nuevo." << std::endl;
+            std::cout << "Opcion no valida, intente de nuevo." << std::endl;
         }
 
     } while (option != 3);
