@@ -1,2 +1,1 @@
-employee # (id # INT # name # VARCHAR);
-employee # id # INT # name # VARCHAR;
+employee # name # STR # age # INT
