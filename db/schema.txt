@@ -1,0 +1,2 @@
+estudiantes#nombre#STR#edad#INT#escuela#STR
+employee # name # STR # age # INT
