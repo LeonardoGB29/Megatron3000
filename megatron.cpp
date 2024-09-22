@@ -128,68 +128,74 @@ bool Megatron::leerSchema(const std::string& tableName, std::vector<Columna>& co
     std::cerr << "No se encontró la tabla " << tableName << " en schema.txt" << std::endl;
     return false;
 }
-
-
-bool Megatron::cumpleCondicion(const std::string& valor, const Columna& columna, const std::string& whereCondition) {
+bool Megatron::cumpleCondicion(const std::vector<std::string>& condiciones, const std::string& valor, const Columna& columna) {
     std::regex conditionRegex(R"((\w+)\s*([<>=!]+)\s*(\S+))", std::regex::icase);
     std::smatch match;
 
-    if (std::regex_match(whereCondition, match, conditionRegex)) {
-        std::string columnaWhere = match[1];
-        std::string operador = match[2];
-        std::string valorCondicion = match[3];
+    bool resultado = true; // Valor inicial para AND
+    for (const auto& whereCondition : condiciones) {
+        if (std::regex_match(whereCondition, match, conditionRegex)) {
+            std::string columnaWhere = match[1];
+            std::string operador = match[2];
+            std::string valorCondicion = match[3];
 
-        valorCondicion = std::regex_replace(valorCondicion, std::regex(R"(^\s+|\s+$)"), "");
-        valorCondicion = std::regex_replace(valorCondicion, std::regex(R"(^'|'$)"), "");
+            // Limpiar el valor de la condición
+            valorCondicion = std::regex_replace(valorCondicion, std::regex(R"(^\s+|\s+$)"), "");
+            valorCondicion = std::regex_replace(valorCondicion, std::regex(R"(^'|'$)"), "");
 
-        if (columna.nombre == columnaWhere) {
-            if (columna.tipo == "INT") {
-                try {
-                    int valorInt = std::stoi(valor);
-                    int valorCondicionInt = std::stoi(valorCondicion);
+            if (columna.nombre == columnaWhere) {
+                bool cumple = false;
 
-                    if (operador == "=") return valorInt == valorCondicionInt;
-                    else if (operador == "!=") return valorInt != valorCondicionInt;
-                    else if (operador == "<") return valorInt < valorCondicionInt;
-                    else if (operador == ">") return valorInt > valorCondicionInt;
-                    else if (operador == "<=") return valorInt <= valorCondicionInt;
-                    else if (operador == ">=") return valorInt >= valorCondicionInt;
+                // Comparar según el tipo de columna
+                if (columna.tipo == "INT") {
+                    try {
+                        int valorInt = std::stoi(valor);
+                        int valorCondicionInt = std::stoi(valorCondicion);
+                        cumple = (operador == "=" && valorInt == valorCondicionInt) ||
+                            (operador == "!=" && valorInt != valorCondicionInt) ||
+                            (operador == "<" && valorInt < valorCondicionInt) ||
+                            (operador == ">" && valorInt > valorCondicionInt) ||
+                            (operador == "<=" && valorInt <= valorCondicionInt) ||
+                            (operador == ">=" && valorInt >= valorCondicionInt);
+                    }
+                    catch (...) {
+                        std::cerr << "Error al convertir valores a INT." << std::endl;
+                        return false;
+                    }
                 }
-                catch (...) {
-                    std::cerr << "Error al convertir valores a INT." << std::endl;
-                    return false;
+                else if (columna.tipo == "FLOAT") {
+                    try {
+                        float valorFloat = std::stof(valor);
+                        float valorCondicionFloat = std::stof(valorCondicion);
+                        cumple = (operador == "=" && valorFloat == valorCondicionFloat) ||
+                            (operador == "!=" && valorFloat != valorCondicionFloat) ||
+                            (operador == "<" && valorFloat < valorCondicionFloat) ||
+                            (operador == ">" && valorFloat > valorCondicionFloat) ||
+                            (operador == "<=" && valorFloat <= valorCondicionFloat) ||
+                            (operador == ">=" && valorFloat >= valorCondicionFloat);
+                    }
+                    catch (...) {
+                        std::cerr << "Error al convertir valores a FLOAT." << std::endl;
+                        return false;
+                    }
                 }
-            }
-            else if (columna.tipo == "FLOAT") {
-                try {
-                    float valorFloat = std::stof(valor);
-                    float valorCondicionFloat = std::stof(valorCondicion);
+                else if (columna.tipo == "STR") {
+                    std::string valorLimpio = std::regex_replace(valor, std::regex(R"(^\s+|\s+$)"), "");
+                    std::string valorCondicionLimpio = std::regex_replace(valorCondicion, std::regex(R"(^\s+|\s+$)"), "");
+                    cumple = (operador == "=" && valorLimpio == valorCondicionLimpio) ||
+                        (operador == "!=" && valorLimpio != valorCondicionLimpio);
+                }
 
-                    if (operador == "=") return valorFloat == valorCondicionFloat;
-                    else if (operador == "!=") return valorFloat != valorCondicionFloat;
-                    else if (operador == "<") return valorFloat < valorCondicionFloat;
-                    else if (operador == ">") return valorFloat > valorCondicionFloat;
-                    else if (operador == "<=") return valorFloat <= valorCondicionFloat;
-                    else if (operador == ">=") return valorFloat >= valorCondicionFloat;
-                }
-                catch (...) {
-                    std::cerr << "Error al convertir valores a FLOAT." << std::endl;
-                    return false;
-                }
-            }
-            else if (columna.tipo == "STR") {
-                std::string valorLimpio = std::regex_replace(valor, std::regex(R"(^\s+|\s+$)"), "");
-                std::string valorCondicionLimpio = std::regex_replace(valorCondicion, std::regex(R"(^\s+|\s+$)"), "");
-
-                if (operador == "=") return valorLimpio == valorCondicionLimpio;
-                else if (operador == "!=") return valorLimpio != valorCondicionLimpio;
+                // Aplicar resultado lógico
+                resultado = (resultado && cumple); // Para AND
             }
         }
     }
 
-    // Si no se cumple la condición, o no hay WHERE, retorna true
-    return true;
+    return resultado; // Si se necesita un AND global, solo retorna el resultado
 }
+
+
 void Megatron::procesarConsulta(const std::string& query) {
     std::regex sqlRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+))?\s*$)");
     std::smatch match;
@@ -238,17 +244,17 @@ void Megatron::procesarConsulta(const std::string& query) {
             filaValores.push_back(field);
         }
 
-        bool imprimeFila = false; 
+        bool imprimeFila = false;
 
-        for (size_t i = 0; i < listaColumnas.size(); ++i) {
-            if (listaColumnas[i] == "*") {
-                imprimeFila = true; 
+        for (const auto& col : listaColumnas) {
+            if (col == "*") {
+                imprimeFila = true;
                 break;
             }
             else {
-                for (size_t j = 0; j < columnasDisponibles.size(); ++j) {
-                    if (listaColumnas[i] == columnasDisponibles[j].nombre) {
-                        imprimeFila = true; 
+                for (const auto& c : columnasDisponibles) {
+                    if (col == c.nombre) {
+                        imprimeFila = true;
                         break;
                     }
                 }
@@ -256,24 +262,54 @@ void Megatron::procesarConsulta(const std::string& query) {
         }
 
         if (imprimeFila) {
-            std::string resultado; 
-            for (size_t i = 0; i < listaColumnas.size(); ++i) {
-                if (listaColumnas[i] == "*") {
-                    for (const auto& val : filaValores) {
-                        resultado += val + " ";
-                    }
-                    break;
+            // Ahora aplicamos las condiciones WHERE
+            std::vector<std::string> condiciones;
+            std::regex orRegex(R"(\s+OR\s+)");
+            std::regex andRegex(R"(\s+AND\s+)");
+            std::string token;
+
+            // Separar condiciones por OR
+            std::sregex_token_iterator iter(whereCondition.begin(), whereCondition.end(), orRegex, -1);
+            std::sregex_token_iterator end;
+            while (iter != end) {
+                std::string orCondition = *iter++;
+                // Separar condiciones por AND dentro de cada condición OR
+                std::sregex_token_iterator iterAnd(orCondition.begin(), orCondition.end(), andRegex, -1);
+                while (iterAnd != end) {
+                    condiciones.push_back(*iterAnd++);
                 }
-                else {
-                    for (size_t j = 0; j < columnasDisponibles.size(); ++j) {
-                        if (listaColumnas[i] == columnasDisponibles[j].nombre) {
-                            resultado += filaValores[j] + " "; 
-                            break;
+            }
+
+            // Comprobar si cumple con las condiciones
+            bool cumpleTodas = true; // Para condiciones AND global
+            for (size_t j = 0; j < columnasDisponibles.size(); ++j) {
+                std::string valor = filaValores[j]; // Asegúrate de que valor se extrae correctamente de filaValores
+                if (!cumpleCondicion(condiciones, valor, columnasDisponibles[j])) {
+                    cumpleTodas = false;
+                    break; // Salir si no cumple
+                }
+            }
+
+            if (cumpleTodas) {
+                std::string resultado;
+                for (const auto& col : listaColumnas) {
+                    if (col == "*") {
+                        for (const auto& val : filaValores) {
+                            resultado += val + " ";
+                        }
+                        break;
+                    }
+                    else {
+                        for (size_t j = 0; j < columnasDisponibles.size(); ++j) {
+                            if (col == columnasDisponibles[j].nombre) {
+                                resultado += filaValores[j] + " ";
+                                break;
+                            }
                         }
                     }
                 }
+                std::cout << resultado << std::endl;
             }
-            std::cout << resultado << std::endl; 
         }
     }
 
