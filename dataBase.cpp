@@ -1,4 +1,7 @@
 #include "dataBase.h"
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 std::string removeChars(const std::string& str, char charToRemove) {
     std::string result;
@@ -229,6 +232,14 @@ bool dataBase::validateInstance(const std::string& schemaLine, const std::string
 }
 
 void dataBase::uploadInstances(const std::string& data, const char& symbol) { // symbol = caracter que separa los registros
+
+    std::string dbFolder = "db";
+
+    if (!fs::exists(dbFolder)) { // crear directorio db si no existe
+        fs::create_directory(dbFolder);
+        std::cout << "Directorio db creado" << std::endl;
+    }
+
     std::ifstream schemaFile("schema.txt");
     std::string schemaLine, instanceFile, relationName;
 
@@ -244,30 +255,31 @@ void dataBase::uploadInstances(const std::string& data, const char& symbol) { //
 
     std::ifstream instancesFile(data);
     std::string instance;
+    std::string filePath = dbFolder + "/" + relationName + ".txt";
 
-    relationName += ".txt";
 
-    std::ofstream outputFile(relationName, std::ios::app);
+    std::ofstream outputFile(filePath, std::ios::app);
 
-    std::getline(instancesFile, instance); // salto la primer linea (nombre de la columnas)
+    std::getline(instancesFile, instance);  // Saltar la primera línea (nombre de las columnas)
 
     while (std::getline(instancesFile, instance)) {
+        instance = replaceWithSymbol(instance, '#'); 
 
-        instance = replaceWithSymbol(instance, '#');
-
-        //schemaLine = linea de esquema correspondiente a la relacion
-        // instance = instancia generada, separa por #
+        // schemaLine = línea del esquema correspondiente a la relación
+        // instance = instancia generada, separada por '#'
 
         if (validateInstance(schemaLine, instance)) {
-            outputFile << instance << std::endl;  // Si es válida, se guarda
+            outputFile << instance << std::endl; 
             std::cout << "Instancia válida: " << instance << std::endl;
-        } else {
-            std::cout << "Instancia inválida: " << instance << std::endl;  // Si es inválida, no se guarda
+        }
+        else {
+            std::cout << "Instancia inválida: " << instance << std::endl;
         }
     }
 
     instancesFile.close();
     outputFile.close();
+
 }
 
 
