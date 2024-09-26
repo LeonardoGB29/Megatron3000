@@ -94,7 +94,8 @@ bool Megatron::obtenerColumnasYTabla(const std::string& query, std::vector<std::
 }
 
 bool Megatron::leerSchema(const std::string& tableName, std::vector<Columna>& columnasDisponibles) {
-    std::ifstream schemaFile("C:/Users/USUARIO/Source/Repos/Megatronn3000/db/schema.txt");
+    std::filesystem::path Schema_Dir = std::filesystem::current_path().parent_path() / "db" / "schema.txt";
+    std::ifstream schemaFile(Schema_Dir);
     if (!schemaFile.is_open()) {
         std::cerr << "Error al abrir schema.txt. Verifica que el archivo existe y tiene permisos de lectura." << std::endl;
         return false;
@@ -225,8 +226,8 @@ void Megatron::procesarConsulta(const std::string& query) {
             listaColumnas.push_back(columna.substr(start, end - start + 1));
         }
     }
-
-    std::ifstream file("C:/Users/USUARIO/Source/Repos/Megatronn3000/db/" + tableName + ".txt");
+    std::filesystem::path table_Dir = std::filesystem::current_path().parent_path() / "db" / (tableName + ".txt");
+    std::ifstream file(table_Dir);
     if (!file.is_open()) {
         std::cout << "No se pudo abrir el archivo: db/" << tableName << ".txt" << std::endl;
         return;
