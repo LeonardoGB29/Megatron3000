@@ -126,9 +126,11 @@ bool Megatron::leerSchema(const std::string& tableName, std::vector<Columna>& co
         }
     }
 
-    std::cerr << "No se encontró la tabla " << tableName << " en schema.txt" << std::endl;
+    //std::cerr << "No se encontró la tabla " << tableName << " en schema.txt" << std::endl;
     return false;
 }
+
+
 bool Megatron::cumpleCondicion(const std::vector<std::string>& condiciones, const std::string& valor, const Columna& columna) {
     std::regex conditionRegex(R"((\w+)\s*([<>=!]+)\s*(\S+))", std::regex::icase);
     std::smatch match;
@@ -198,7 +200,7 @@ bool Megatron::cumpleCondicion(const std::vector<std::string>& condiciones, cons
 
 
 void Megatron::procesarConsulta(const std::string& query) {
-    std::regex sqlRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+))?\s*$)");
+    std::regex sqlRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+(\w+)(?:\s+JOIN\s+(\w+)\s+ON\s+(\w+\.\w+)\s*=\s*(\w+\.\w+))?(?:\s+WHERE\s+([^|]*))?(?:\s*\|\s*(\w+))?\s*$)");
     std::smatch match;
 
     if (!std::regex_match(query, match, sqlRegex)) {
@@ -208,11 +210,53 @@ void Megatron::procesarConsulta(const std::string& query) {
 
     std::string columnas = match[1];
     std::string tableName = match[2];
-    std::string whereCondition = match.size() > 3 ? std::string(match[3]) : "";
+    std::string joinTable, joinLeftColumn, joinRightColumn;
+    std::string whereCondition;
+    std::string name_new_table;
+
+    // Verificar si hay JOIN en la consulta
+    if (match.size() > 4 && match[3].matched) {
+        joinTable = match[3]; // Nombre de la tabla a unir
+        joinLeftColumn = match[4]; // Nombre de la columna en la tabla principal
+        joinRightColumn = match[5]; // Nombre de la columna en la tabla JOIN
+    }
+
+    if (match.size() > 6) {
+        whereCondition = match[6];
+    }
+    else {
+        whereCondition = "";
+    }
+
+    if (match.size() > 7) {
+        name_new_table = match[7];
+    }
+    else {
+        name_new_table = "";
+    }
 
     std::vector<Columna> columnasDisponibles;
     if (!leerSchema(tableName, columnasDisponibles)) {
+        std::cerr << "No se encontró la tabla " << tableName << " o error al leer datos." << std::endl;
         return;
+    }
+
+
+    if (name_new_table != "") {
+        if (leerSchema(name_new_table, columnasDisponibles)) {
+            std::cout << "tabla ya existente";
+            return;
+        }
+        else { //nuevo
+            std::filesystem::path Schema_Dir = std::filesystem::current_path().parent_path() / "db" / "schema.txt";
+            std::ofstream schemaFile(Schema_Dir, std::ios::app);
+            schemaFile << '\n' << name_new_table;
+            int colum_size = columnasDisponibles.size();
+            for (size_t i = 0; i < colum_size; ++i) {
+                schemaFile << " # " << columnasDisponibles[i].nombre << " # " << columnasDisponibles[i].tipo;
+            }
+            schemaFile.close();
+        }
     }
 
     std::vector<std::string> listaColumnas;
@@ -226,6 +270,8 @@ void Megatron::procesarConsulta(const std::string& query) {
             listaColumnas.push_back(columna.substr(start, end - start + 1));
         }
     }
+
+
     std::filesystem::path table_Dir = std::filesystem::current_path().parent_path() / "db" / (tableName + ".txt");
     std::ifstream file(table_Dir);
     if (!file.is_open()) {
@@ -293,10 +339,13 @@ void Megatron::procesarConsulta(const std::string& query) {
 
             if (cumpleTodas) {
                 std::string resultado;
+                std::string resultado_archivo;
+
                 for (const auto& col : listaColumnas) {
                     if (col == "*") {
                         for (const auto& val : filaValores) {
                             resultado += val + " ";
+                            resultado_archivo += val + " # ";
                         }
                         break;
                     }
@@ -304,12 +353,24 @@ void Megatron::procesarConsulta(const std::string& query) {
                         for (size_t j = 0; j < columnasDisponibles.size(); ++j) {
                             if (col == columnasDisponibles[j].nombre) {
                                 resultado += filaValores[j] + " ";
+                                resultado_archivo += filaValores[j] + " # ";
                                 break;
                             }
                         }
                     }
                 }
                 std::cout << resultado << std::endl;
+                if (!name_new_table.empty()) {
+                    std::filesystem::path table_Dir = std::filesystem::current_path().parent_path() / "db" / (name_new_table + ".txt");
+                    std::ofstream outFile(table_Dir, std::ios::app); // Abrir archivo en modo de aÃ±adir
+                    if (outFile.is_open()) {
+                        outFile << resultado << std::endl; // Escribir el resultado en el archivo
+                        outFile.close(); // Cerrar el archivo
+                    }
+                    else {
+                        std::cerr << "Error al abrir el archivo: " << name_new_table << ".txt" << std::endl;
+                    }
+                }
             }
         }
     }
