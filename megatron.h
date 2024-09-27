@@ -23,7 +23,7 @@ public:
 private:
     bool obtenerColumnasYTabla(const std::string& query, std::vector<std::string>& listaColumnas, std::string& tableName);
     bool leerSchema(const std::string& tableName, std::vector<Columna>& columnasDisponibles);
-
+    void procesarConsultaJoin(const std::string& query);
     bool cumpleCondicion(const std::vector<std::string>& condiciones, const std::string& valor, const Columna& columna);
     void procesarConsulta(const std::string& query);
 };

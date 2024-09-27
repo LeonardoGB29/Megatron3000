@@ -216,9 +216,11 @@ void Megatron::procesarConsulta(const std::string& query) {
 
     // Verificar si hay JOIN en la consulta
     if (match.size() > 4 && match[3].matched) {
-        joinTable = match[3]; // Nombre de la tabla a unir
+        /*joinTable = match[3]; // Nombre de la tabla a unir
         joinLeftColumn = match[4]; // Nombre de la columna en la tabla principal
-        joinRightColumn = match[5]; // Nombre de la columna en la tabla JOIN
+        joinRightColumn = match[5]; // Nombre de la columna en la tabla JOIN*/
+        procesarConsultaJoin(query);
+        return;
     }
 
     if (match.size() > 6) {
@@ -376,4 +378,123 @@ void Megatron::procesarConsulta(const std::string& query) {
     }
 
     file.close();
+}
+
+void Megatron::procesarConsultaJoin(const std::string& query) {
+    std::regex sqlJoinRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+(\w+)\s+JOIN\s+(\w+)\s+ON\s+(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)(?:\s+WHERE\s+([^|]*))?\s*$)");
+    std::smatch match;
+
+    if (!std::regex_match(query, match, sqlJoinRegex)) {
+        std::cout << "Formato de SELECT JOIN inválido." << std::endl;
+        return;
+    }
+
+    std::string columnas = match[1];
+    std::string tabla1 = match[2];
+    std::string tabla2 = match[3];
+    std::string aliasTabla1 = match[4];
+    std::string columnaTabla1 = match[5];
+    std::string aliasTabla2 = match[6];
+    std::string columnaTabla2 = match[7];
+    std::string whereCondition = match.size() > 8 ? std::string(match[8]) : "";
+
+    std::vector<Columna> columnasTabla1, columnasTabla2;
+    if (!leerSchema(tabla1, columnasTabla1)) {
+        std::cerr << "No se encontró la tabla " << tabla1 << " en schema.txt" << std::endl;
+        return;
+    }
+    if (!leerSchema(tabla2, columnasTabla2)) {
+        std::cerr << "No se encontró la tabla " << tabla2 << " en schema.txt" << std::endl;
+        return;
+    }
+
+    //buscar indices
+    int indexColumnaTabla1 = -1, indexColumnaTabla2 = -1;
+    for (size_t i = 0; i < columnasTabla1.size(); ++i) {
+        if (columnasTabla1[i].nombre == columnaTabla1) {
+            indexColumnaTabla1 = static_cast<int>(i);
+            break;
+        }
+    }
+
+    for (size_t j = 0; j < columnasTabla2.size(); ++j) {
+        if (columnasTabla2[j].nombre == columnaTabla2) {
+            indexColumnaTabla2 = static_cast<int>(j);
+            break;
+        }
+    }
+
+    if (indexColumnaTabla1 == -1 || indexColumnaTabla2 == -1) {
+        std::cerr << "No se encontraron las columnas de unión en las tablas correspondientes." << std::endl;
+        return;
+    }
+
+    //abrir tablas
+    std::filesystem::path pathTabla1 = std::filesystem::current_path().parent_path() / "db" / (tabla1 + ".txt");
+    std::filesystem::path pathTabla2 = std::filesystem::current_path().parent_path() / "db" / (tabla2 + ".txt");
+
+    std::ifstream archivoTabla1(pathTabla1);
+    std::ifstream archivoTabla2(pathTabla2);
+
+    if (!archivoTabla1.is_open()) {
+        std::cerr << "No se pudo abrir el archivo de la tabla: " << tabla1 << std::endl;
+        return;
+    }
+    if (!archivoTabla2.is_open()) {
+        std::cerr << "No se pudo abrir el archivo de la tabla: " << tabla2 << std::endl;
+        return;
+    }
+
+    //hacer el JOIN entre tablas línea a línea
+    std::string fila1, fila2;
+    while (std::getline(archivoTabla1, fila1)) {
+        std::stringstream ssFila1(fila1);
+        std::vector<std::string> valoresFila1;
+        std::string valor1;
+
+
+        while (std::getline(ssFila1, valor1, '#')) {
+            valor1.erase(valor1.find_last_not_of(" \t") + 1);
+            valor1.erase(0, valor1.find_first_not_of(" \t"));
+            valoresFila1.push_back(valor1);
+        }
+
+        std::string valorUnionTabla1 = valoresFila1[indexColumnaTabla1];
+
+        archivoTabla2.clear();
+        archivoTabla2.seekg(0, std::ios::beg);
+
+        while (std::getline(archivoTabla2, fila2)) {
+            std::stringstream ssFila2(fila2);
+            std::vector<std::string> valoresFila2;
+            std::string valor2;
+
+            while (std::getline(ssFila2, valor2, '#')) {
+                valor2.erase(valor2.find_last_not_of(" \t") + 1);
+                valor2.erase(0, valor2.find_first_not_of(" \t"));
+                valoresFila2.push_back(valor2);
+            }
+
+            std::string valorUnionTabla2 = valoresFila2[indexColumnaTabla2];
+
+            //union si coinciden
+            if (valorUnionTabla1 == valorUnionTabla2) {
+                //combinar
+                std::string resultado;
+                for (const auto& val : valoresFila1) {
+                    resultado += val + " ";
+                }
+                for (const auto& val : valoresFila2) {
+                    resultado += val + " ";
+                }
+
+                // Imprimir el resultado del JOIN
+                std::cout << resultado << std::endl;
+
+            }
+        }
+    }
+
+    archivoTabla1.close();
+    archivoTabla2.close();
 }
