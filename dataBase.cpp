@@ -209,7 +209,7 @@ void dataBase::showMenu() {
         std::cout << "1. Entrar el MEGATRON3000" << std::endl;
         std::cout << "2. Generar instancias" << std::endl;
         std::cout << "3. Salir\n" << std::endl;
-        std::cout << "Seleccione una opción: ";
+        std::cout << "Seleccione una opcion: ";
         std::cin >> option;
         std::cout << std::endl;
 
