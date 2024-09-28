@@ -1,5 +1,6 @@
 #include "megatron.h"
 #include <iostream>
+#include <map>
 
 std::string removeChars(const std::string& str, char charToRemove) {
     std::string result;
@@ -19,12 +20,216 @@ void Megatron::parseAndExecuteQuery(const std::string& query) {
     if (command == "CREATE") {
         createTable(query);
     }
+    else if (command == "INSERT") {
+        insertTable(query);
+    }
     else if (command == "SELECT") {
         select(query);
+    }
+    else if (command == "UPDATE") {
+        updateTable(query);
     }
     else {
         std::cout << "Comando no reconocido: " << command << std::endl;
     }
+}
+
+bool Megatron::insertTable(const std::string& query) {
+
+    std::regex sqlRegex(R"(INSERT INTO\s+(\w+)\s*(\([^\)]+\))?\s+VALUES\s*\((.+)\))", std::regex::icase);
+    std::smatch match;
+
+    if (!std::regex_match(query, match, sqlRegex)) {
+        std::cerr << "Formato de INSERT inválido." << std::endl;
+        return false;
+    }
+
+    std::string tableName = match[1];
+    std::string columnsPart = match[2];
+    std::string valuesPart = match[3];
+
+    // Leer el esquema para obtener columnas y tipos de datos
+    std::vector<Columna> columnasDisponibles;
+    if (!leerSchema(tableName, columnasDisponibles)) {
+        return false;
+    }
+
+    // Obtener columnas a insertar
+    std::vector<std::string> columnasAInsertar;
+    if (!columnsPart.empty()) {
+        columnsPart.erase(0, 1); // Eliminar paréntesis
+        columnsPart.erase(columnsPart.size() - 1, 1); // Eliminar paréntesis final
+        std::stringstream ss(columnsPart);
+        std::string columna;
+        while (std::getline(ss, columna, ',')) {
+            columna.erase(columna.find_last_not_of(" \t") + 1);
+            columna.erase(0, columna.find_first_not_of(" \t"));
+            columnasAInsertar.push_back(columna);
+        }
+    }
+    else {
+        for (const auto& col : columnasDisponibles) {
+            columnasAInsertar.push_back(col.nombre);
+        }
+    }
+
+    // Parsear los valores a insertar
+    std::vector<std::string> valoresAInsertar;
+    std::stringstream ssValues(valuesPart);
+    std::string valor;
+    while (std::getline(ssValues, valor, ',')) {
+        valor.erase(valor.find_last_not_of(" \t") + 1);
+        valor.erase(0, valor.find_first_not_of(" \t"));
+        valoresAInsertar.push_back(valor);
+    }
+
+    // Verificar que el número de columnas y valores coinciden
+    if (columnasAInsertar.size() != valoresAInsertar.size()) {
+        std::cerr << "El número de columnas no coincide con el número de valores." << std::endl;
+        return false;
+    }
+
+    // Verificar tipos de datos
+    for (size_t i = 0; i < columnasAInsertar.size(); ++i) {
+        const std::string& valor = valoresAInsertar[i];
+        const Columna& columna = columnasDisponibles[i];
+
+        if (columna.tipo == "INT") {
+            try {
+                std::stoi(valor);  // Intentar convertir a entero
+            }
+            catch (...) {
+                std::cerr << "Error: el valor '" << valor << "' no es un INT válido para la columna '" << columna.nombre << "'." << std::endl;
+                return false;
+            }
+        }
+        else if (columna.tipo == "STR") {
+            if (valor.front() != '\'' || valor.back() != '\'') {
+                std::cerr << "Error: el valor '" << valor << "' debe estar entre comillas simples para la columna '" << columna.nombre << "'." << std::endl;
+                return false;
+            }
+        }
+    }
+
+    // Verificar restricciones adicionales (clave primaria única)
+    // Aquí podrías agregar la validación de unicidad, si es necesario.
+
+    // Si todo es correcto, insertar los valores en el archivo
+    std::ofstream file("db/" + tableName + ".txt", std::ios::app);
+    if (!file.is_open()) {
+        std::cerr << "No se pudo abrir el archivo: db/" << tableName << ".txt" << std::endl;
+        return false;
+    }
+
+    // Construir la fila a insertar
+    std::string nuevaFila;
+    for (size_t i = 0; i < valoresAInsertar.size(); ++i) {
+        nuevaFila += valoresAInsertar[i];
+        if (i < valoresAInsertar.size() - 1) {
+            nuevaFila += "#";  // Separador entre valores
+        }
+    }
+
+    // Insertar la fila
+    file << nuevaFila << std::endl;
+    file.close();
+
+    std::cout << "Registro insertado correctamente." << std::endl;
+    return true;
+}
+
+void Megatron::updateTable(const std::string& query) {
+    procesarUpdate(query);
+}
+
+bool Megatron::procesarUpdate(const std::string& query) {
+
+    std::regex sqlRegex(R"(UPDATE\s+(\w+)\s+SET\s+([^WHERE]+)\s*(?:WHERE\s+(.+))?)", std::regex::icase);
+    std::smatch match;
+
+    if (!std::regex_match(query, match, sqlRegex)) {
+        std::cerr << "Formato de UPDATE inválido." << std::endl;
+        return false;
+    }
+
+    //std::string query = match[0];
+    std::string tableName = match[1]; // tabla
+    std::string setClause = match[2]; // columnas y valores a actualizar
+    std::string whereClause = match.size() > 3 ? std::string(match[3]) : "";  // clausula del where
+
+    // Leer esquema para obtener las columnas disponibles
+    std::vector<Columna> columnasDisponibles;
+    if (!leerSchema(tableName, columnasDisponibles)) {
+        return false;
+    }
+
+    // Parsear la cláusula SET
+    std::map<std::string, std::string> columnasAActualizar;
+    if (!parseSetClause(setClause, columnasAActualizar)) {
+        return false;
+    }
+
+    // Leer las filas actuales de la tabla
+    std::ifstream file("db/" + tableName + ".txt");
+    if (!file.is_open()) {
+        std::cerr << "No se pudo abrir el archivo: db/" << tableName << ".txt" << std::endl;
+        return false;
+    }
+
+    std::vector<std::string> nuevasFilas;
+    std::string line;
+    while (std::getline(file, line)) {
+        std::stringstream lineStream(line);
+        std::vector<std::string> filaValores;
+        std::string valor;
+
+        // Separar los valores de cada fila
+        while (std::getline(lineStream, valor, '#')) {
+            filaValores.push_back(valor);
+        }
+
+        // Verificar si la fila cumple con la condición WHERE
+        bool cumpleCondicion = true;
+        if (!whereClause.empty()) {
+            cumpleCondicion = verificarCondicion(filaValores, whereClause, columnasDisponibles);
+        }
+
+        // Si cumple con la condición, actualizar las columnas especificadas
+        if (cumpleCondicion) {
+            for (size_t i = 0; i < columnasDisponibles.size(); ++i) {
+                const auto& columna = columnasDisponibles[i];
+                if (columnasAActualizar.find(columna.nombre) != columnasAActualizar.end()) {
+                    filaValores[i] = columnasAActualizar[columna.nombre];
+                }
+            }
+        }
+
+        // Construir la fila actualizada y agregarla al vector de nuevas filas
+        std::string nuevaFila;
+        for (size_t i = 0; i < filaValores.size(); ++i) {
+            nuevaFila += filaValores[i];
+            if (i < filaValores.size() - 1) {
+                nuevaFila += "#";
+            }
+        }
+        nuevasFilas.push_back(nuevaFila);
+    }
+    file.close();
+
+    // Sobreescribir el archivo de la tabla con las filas actualizadas
+    std::ofstream outFile("db/" + tableName + ".txt");
+    if (!outFile.is_open()) {
+        std::cerr << "No se pudo abrir el archivo para escribir: db/" << tableName << ".txt" << std::endl;
+        return false;
+    }
+
+    for (const auto& nuevaFila : nuevasFilas) {
+        outFile << nuevaFila << std::endl;
+    }
+
+    outFile.close();
+    std::cout << "Actualización realizada correctamente." << std::endl;
+    return true;
 }
 
 void Megatron::createTable(const std::string& query) {
@@ -93,41 +298,6 @@ bool Megatron::obtenerColumnasYTabla(const std::string& query, std::vector<std::
     return false;
 }
 
-bool Megatron::leerSchema(const std::string& tableName, std::vector<Columna>& columnasDisponibles) {
-    std::ifstream schemaFile("C:/Users/USUARIO/Source/Repos/Megatronn3000/db/schema.txt");
-    if (!schemaFile.is_open()) {
-        std::cerr << "Error al abrir schema.txt. Verifica que el archivo existe y tiene permisos de lectura." << std::endl;
-        return false;
-    }
-
-    std::string line;
-    while (std::getline(schemaFile, line)) {
-        std::stringstream lineStream(line);
-        std::string nombreTabla;
-        std::getline(lineStream, nombreTabla, '#');
-
-        // Limpiamos los espacios en blanco alrededor del nombre de la tabla
-        nombreTabla.erase(nombreTabla.find_last_not_of(" \t") + 1);
-        nombreTabla.erase(0, nombreTabla.find_first_not_of(" \t"));
-
-        if (nombreTabla == tableName) {
-            std::string columna, tipo;
-            while (std::getline(lineStream, columna, '#') && std::getline(lineStream, tipo, '#')) {
-                columna.erase(columna.find_last_not_of(" \t") + 1);
-                columna.erase(0, columna.find_first_not_of(" \t"));
-                tipo.erase(tipo.find_last_not_of(" \t") + 1);
-                tipo.erase(0, tipo.find_first_not_of(" \t"));
-                columnasDisponibles.push_back({ columna, tipo });
-            }
-
-            schemaFile.close();
-            return true;
-        }
-    }
-
-    std::cerr << "No se encontró la tabla " << tableName << " en schema.txt" << std::endl;
-    return false;
-}
 bool Megatron::cumpleCondicion(const std::vector<std::string>& condiciones, const std::string& valor, const Columna& columna) {
     std::regex conditionRegex(R"((\w+)\s*([<>=!]+)\s*(\S+))", std::regex::icase);
     std::smatch match;
@@ -226,7 +396,7 @@ void Megatron::procesarConsulta(const std::string& query) {
         }
     }
 
-    std::ifstream file("C:/Users/USUARIO/Source/Repos/Megatronn3000/db/" + tableName + ".txt");
+    std::ifstream file("db/" + tableName + ".txt");
     if (!file.is_open()) {
         std::cout << "No se pudo abrir el archivo: db/" << tableName << ".txt" << std::endl;
         return;
