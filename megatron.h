@@ -25,5 +25,8 @@ private:
     bool leerSchema(const std::string& tableName, std::vector<Columna>& columnasDisponibles);
     void procesarConsultaJoin(const std::string& query);
     bool cumpleCondicion(const std::vector<std::string>& condiciones, const std::string& valor, const Columna& columna);
+    bool cumpleCondicion(const std::string& whereCondition, const std::vector<std::string>& fila1, const std::vector<Columna>& columnasTabla1,
+        const std::vector<std::string>& fila2, const std::vector<Columna>& columnasTabla2, const std::string& nombreTabla1, const std::string& nombreTabla2);
+    bool evaluarCondicion(const std::string& operador, const std::string& valor, const std::string& valorCondicion, const std::string& tipo);
     void procesarConsulta(const std::string& query);
 };

@@ -199,6 +199,112 @@ bool Megatron::cumpleCondicion(const std::vector<std::string>& condiciones, cons
 }
 
 
+bool Megatron::cumpleCondicion(const std::string& whereCondition, const std::vector<std::string>& fila1, const std::vector<Columna>& columnasTabla1,
+    const std::vector<std::string>& fila2, const std::vector<Columna>& columnasTabla2, const std::string& nombreTabla1, const std::string& nombreTabla2) {
+
+    std::regex conditionRegex(R"((\w+)(?:\.(\w+))?\s*([<>=!]+)\s*(\S+))", std::regex::icase);
+    std::smatch match;
+
+    std::vector<std::string> condiciones;
+    size_t pos = 0;
+    std::string delimitador = "AND";  // Cambia esto si necesitas soportar 'OR' o ambos
+    std::string where = whereCondition;
+    while ((pos = where.find(delimitador)) != std::string::npos) {
+        condiciones.push_back(where.substr(0, pos));
+        where.erase(0, pos + delimitador.length());
+    }
+    condiciones.push_back(where);  // Agregar la última condición después del último delimitador
+
+    bool resultado = true; // Valor inicial para AND lógico (cambiar si soportamos OR)
+
+    for (const auto& condicion : condiciones) {
+        if (std::regex_match(condicion, match, conditionRegex)) {
+            std::string nombreTablaWhere = match[1];
+            std::string columnaWhere = match[2].matched ? match[2] : match[1];
+            std::string operador = match[3];            
+            std::string valorCondicion = match[4];      
+
+            valorCondicion = std::regex_replace(valorCondicion, std::regex(R"(^\s+|\s+$)"), "");
+            valorCondicion = std::regex_replace(valorCondicion, std::regex(R"(^'|'$)"), "");
+
+            bool cumple = false;
+
+            //buscar en columnas de tabla1 si el . coincide o si no 
+            if (nombreTablaWhere.empty() || nombreTablaWhere == nombreTabla1) {
+                for (size_t i = 0; i < columnasTabla1.size(); ++i) {
+                    if (columnasTabla1[i].nombre == columnaWhere) {
+                        cumple = evaluarCondicion(operador, fila1[i], valorCondicion, columnasTabla1[i].tipo);
+                        break;
+                    }
+                }
+            }
+
+            //buscar en columnas de tabla2 si el . coincide o si no 
+            if (!cumple && (nombreTablaWhere.empty() || nombreTablaWhere == nombreTabla2)) {
+                for (size_t j = 0; j < columnasTabla2.size(); ++j) {
+                    if (columnasTabla2[j].nombre == columnaWhere) {
+                        cumple = evaluarCondicion(operador, fila2[j], valorCondicion, columnasTabla2[j].tipo);
+                        break;
+                    }
+                }
+            }
+
+            //std::cout << "Condición: " << condicion << " -> Cumple: " << (cumple ? "Sí" : "No") << std::endl;
+
+            resultado = (resultado && cumple); 
+        }
+        else {
+            std::cerr << "Formato de condición no reconocido: " << condicion << std::endl;
+        }
+    }
+
+    return resultado; // Retorna el valor final (resultado de todas las condiciones)
+}
+
+bool Megatron::evaluarCondicion(const std::string& operador, const std::string& valor, const std::string& valorCondicion, const std::string& tipo) {
+    if (tipo == "INT") {
+        try {
+            int valorInt = std::stoi(valor);
+            int valorCondicionInt = std::stoi(valorCondicion);
+            return (operador == "=" && valorInt == valorCondicionInt) ||
+                (operador == "!=" && valorInt != valorCondicionInt) ||
+                (operador == "<" && valorInt < valorCondicionInt) ||
+                (operador == ">" && valorInt > valorCondicionInt) ||
+                (operador == "<=" && valorInt <= valorCondicionInt) ||
+                (operador == ">=" && valorInt >= valorCondicionInt);
+        }
+        catch (...) {
+            std::cerr << "Error al convertir valores a INT." << std::endl;
+            return false;
+        }
+    }
+    else if (tipo == "FLOAT") {
+        try {
+            float valorFloat = std::stof(valor);
+            float valorCondicionFloat = std::stof(valorCondicion);
+            return (operador == "=" && valorFloat == valorCondicionFloat) ||
+                (operador == "!=" && valorFloat != valorCondicionFloat) ||
+                (operador == "<" && valorFloat < valorCondicionFloat) ||
+                (operador == ">" && valorFloat > valorCondicionFloat) ||
+                (operador == "<=" && valorFloat <= valorCondicionFloat) ||
+                (operador == ">=" && valorFloat >= valorCondicionFloat);
+        }
+        catch (...) {
+            std::cerr << "Error al convertir valores a FLOAT." << std::endl;
+            return false;
+        }
+    }
+    else if (tipo == "STR") {
+        std::string valorLimpio = std::regex_replace(valor, std::regex(R"(^\s+|\s+$)"), "");
+        std::string valorCondicionLimpio = std::regex_replace(valorCondicion, std::regex(R"(^\s+|\s+$)"), "");
+        return (operador == "=" && valorLimpio == valorCondicionLimpio) ||
+            (operador == "!=" && valorLimpio != valorCondicionLimpio);
+    }
+    return false; // Si no se puede comparar, retorna falso
+}
+
+
+
 void Megatron::procesarConsulta(const std::string& query) {
     std::regex sqlRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+(\w+)(?:\s+JOIN\s+(\w+)\s+ON\s+(\w+\.\w+)\s*=\s*(\w+\.\w+))?(?:\s+WHERE\s+([^|]*))?(?:\s*\|\s*(\w+))?\s*$)");
     std::smatch match;
@@ -364,7 +470,7 @@ void Megatron::procesarConsulta(const std::string& query) {
                 std::cout << resultado << std::endl;
                 if (!name_new_table.empty()) {
                     std::filesystem::path table_Dir = std::filesystem::current_path().parent_path() / "db" / (name_new_table + ".txt");
-                    std::ofstream outFile(table_Dir, std::ios::app); // Abrir archivo en modo de aÃ±adir
+                    std::ofstream outFile(table_Dir, std::ios::app); // Abrir archivo en modo de añadir
                     if (outFile.is_open()) {
                         outFile << resultado << std::endl; // Escribir el resultado en el archivo
                         outFile.close(); // Cerrar el archivo
@@ -381,6 +487,7 @@ void Megatron::procesarConsulta(const std::string& query) {
 }
 
 void Megatron::procesarConsultaJoin(const std::string& query) {
+    //modificación del patrón regex para soportar el JOIN en la consulta
     std::regex sqlJoinRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+(\w+)\s+JOIN\s+(\w+)\s+ON\s+(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)(?:\s+WHERE\s+([^|]*))?\s*$)");
     std::smatch match;
 
@@ -398,6 +505,7 @@ void Megatron::procesarConsultaJoin(const std::string& query) {
     std::string columnaTabla2 = match[7];
     std::string whereCondition = match.size() > 8 ? std::string(match[8]) : "";
 
+    //leer esquemas para ambas tablas para obtener las columnas disponibles
     std::vector<Columna> columnasTabla1, columnasTabla2;
     if (!leerSchema(tabla1, columnasTabla1)) {
         std::cerr << "No se encontró la tabla " << tabla1 << " en schema.txt" << std::endl;
@@ -408,7 +516,7 @@ void Megatron::procesarConsultaJoin(const std::string& query) {
         return;
     }
 
-    //buscar indices
+    //encontrar los índices de las columnas para realizar el JOIN
     int indexColumnaTabla1 = -1, indexColumnaTabla2 = -1;
     for (size_t i = 0; i < columnasTabla1.size(); ++i) {
         if (columnasTabla1[i].nombre == columnaTabla1) {
@@ -429,7 +537,7 @@ void Megatron::procesarConsultaJoin(const std::string& query) {
         return;
     }
 
-    //abrir tablas
+    //abrir los archivos de las tablas
     std::filesystem::path pathTabla1 = std::filesystem::current_path().parent_path() / "db" / (tabla1 + ".txt");
     std::filesystem::path pathTabla2 = std::filesystem::current_path().parent_path() / "db" / (tabla2 + ".txt");
 
@@ -445,13 +553,12 @@ void Megatron::procesarConsultaJoin(const std::string& query) {
         return;
     }
 
-    //hacer el JOIN entre tablas línea a línea
+    // Procesar el JOIN entre las tablas línea por línea
     std::string fila1, fila2;
     while (std::getline(archivoTabla1, fila1)) {
         std::stringstream ssFila1(fila1);
         std::vector<std::string> valoresFila1;
         std::string valor1;
-
 
         while (std::getline(ssFila1, valor1, '#')) {
             valor1.erase(valor1.find_last_not_of(" \t") + 1);
@@ -477,20 +584,20 @@ void Megatron::procesarConsultaJoin(const std::string& query) {
 
             std::string valorUnionTabla2 = valoresFila2[indexColumnaTabla2];
 
-            //union si coinciden
             if (valorUnionTabla1 == valorUnionTabla2) {
-                //combinar
-                std::string resultado;
+                std::string filaUnida;
                 for (const auto& val : valoresFila1) {
-                    resultado += val + " ";
+                    filaUnida += val + " ";
                 }
                 for (const auto& val : valoresFila2) {
-                    resultado += val + " ";
+                    filaUnida += val + " ";
                 }
 
-                // Imprimir el resultado del JOIN
-                std::cout << resultado << std::endl;
-
+                //evaluar WHERE 
+                if (whereCondition.empty() || cumpleCondicion(whereCondition, valoresFila1, columnasTabla1, valoresFila2, columnasTabla2, tabla1, tabla2)) {
+                    //std::cout << "where: " << whereCondition << std::endl;
+                    std::cout << filaUnida << std::endl;
+                }
             }
         }
     }
