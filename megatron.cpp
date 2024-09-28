@@ -595,8 +595,6 @@ void Megatron::updateTable(const std::string& query) {
 
                 if (columnasAActualizar.find(columna.nombre) != columnasAActualizar.end()) {
 
-
-
                     std::string nuevoValor = columnasAActualizar[columna.nombre];
 
                     if (columna.tipo == "STR") {
@@ -617,6 +615,7 @@ void Megatron::updateTable(const std::string& query) {
                 nuevaFila += "#";
             }
         }
+
         nuevasFilas.push_back(nuevaFila);
     }
 
