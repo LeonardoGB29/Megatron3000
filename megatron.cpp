@@ -13,7 +13,7 @@ std::string removeChars(const std::string& str, char charToRemove) {
 }
 
 bool leerSchema(const std::string& tableName, std::vector<Columna>& columnasDisponibles) { // devuelve las columnas de una tabla x
-    std::ifstream schemaFile("schema.txt");
+    std::ifstream schemaFile(Schema_Dir);
 
     if (!schemaFile.is_open()) {
         std::cerr << "Error al abrir schema" << std::endl;
@@ -257,7 +257,7 @@ void Megatron::createTable(const std::string& query) {
     iss >> command >> tableKeyword >> tableName;
 
     if (tableKeyword == "TABLE") {
-        std::ofstream schemaFile("schema.txt", std::ios::app);
+        std::ofstream schemaFile(Schema_Dir, std::ios::app);
 
         if (!schemaFile.is_open()) {
             std::cerr << "No se pudo abrir el archivo schema.txt" << std::endl;
@@ -533,7 +533,7 @@ void Megatron::select(const std::string& query) {
         }
 
         else {
-            std::filesystem::path Schema_Dir = std::filesystem::current_path().parent_path() / "db" / "schema.txt";
+            std::filesystem::path Schema_Dir = std::filesystem::current_path().parent_path() / "db" / "scheme.txt";
             std::ofstream schemaFile(Schema_Dir, std::ios::app);
             schemaFile << '\n' << name_new_table;
             int colum_size = columnasDisponibles.size();

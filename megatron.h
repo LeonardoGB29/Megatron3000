@@ -10,6 +10,9 @@
 
 namespace fs = std::filesystem;
 
+const fs::path Schema_Dir = fs::current_path().parent_path() / "db" / "scheme.txt";
+
+
 struct Columna {
     std::string nombre;
     std::string tipo;

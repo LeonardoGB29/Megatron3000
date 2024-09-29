@@ -27,7 +27,7 @@ std::string replaceWithSymbol(const std::string& input, char symbol) { // symbol
 }
 
 void dataBase::displayRelations() {
-    std::ifstream schemaFile("schema.txt");
+    std::ifstream schemaFile(Schema_Dir);
     std::string line;
 
     if (!schemaFile.is_open()) {
@@ -51,7 +51,7 @@ void dataBase::displayRelations() {
 
 std::string dataBase::selectRelation() {
 
-    std::ifstream schemaFile("schema.txt");
+    std::ifstream schemaFile(Schema_Dir);
     std::string line, relationName;
     bool found = false;
     std::cout << "Seleccion una relacion: ";
@@ -156,7 +156,7 @@ void dataBase::uploadInstances(const std::string& data, const char& symbol) { //
         std::cout << "Directorio db creado" << std::endl;
     }
 
-    std::ifstream schemaFile("schema.txt");
+    std::ifstream schemaFile(Schema_Dir);
     std::string schemaLine, instanceFile, relationName;
 
     displayRelations(); // mostrar todas la relations
