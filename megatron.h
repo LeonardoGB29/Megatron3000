@@ -11,7 +11,7 @@
 namespace fs = std::filesystem;
 
 const fs::path Schema_Dir = fs::current_path().parent_path() / "db" / "scheme.txt";
-
+const fs::path DB_Dir = fs::current_path().parent_path() / "db";
 
 struct Columna {
     std::string nombre;

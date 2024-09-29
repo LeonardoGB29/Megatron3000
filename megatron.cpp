@@ -705,17 +705,20 @@ void Megatron::updateTable(const std::string& query) {
         }
     }
     
-    std::ifstream file("db/" + tableName + ".txt");
+    std::ifstream file(DB_Dir / (tableName + ".txt"));
 
     if (!file.is_open()) {
-        std::cerr << "No se pudo abrir el archivo: db/" << tableName << ".txt" << std::endl;
+        std::cerr << "No se pudo abrir el archivo: " << (DB_Dir / (tableName + ".txt")) << std::endl;
         return;
     }
+
 
     std::vector<std::string> nuevasFilas;
     std::string line;
 
     while (std::getline(file, line)) {
+
+        std::cout << line << std::endl;
 
         std::stringstream lineStream(line);
         std::vector<std::string> filaValores;
@@ -794,10 +797,10 @@ void Megatron::updateTable(const std::string& query) {
 
     file.close();
 
-    std::ofstream outFile("db/" + tableName + ".txt");
+    std::ofstream outFile(DB_Dir / (tableName + ".txt"));
 
     if (!outFile.is_open()) {
-        std::cerr << "No se pudo abrir el archivo para escribir: db/" << tableName << ".txt" << std::endl;
+        std::cerr << "No se pudo abrir el archivo para escribir: " << (DB_Dir / (tableName + ".txt")).string() << std::endl;
         return;
     }
 
