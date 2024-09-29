@@ -14,9 +14,9 @@ std::string replaceWithSymbol(const std::string& input, char symbol) { // symbol
             result += c;
         }
         else if (c == ',' && !insideQuotes) {  //a,b,"a,b"
-            result += " ";
+            //result += " ";
             result += symbol;
-            result += " ";
+            //result += " ";
         }
         else {
             result += c;
@@ -54,7 +54,7 @@ std::string dataBase::selectRelation() {
     std::ifstream schemaFile("schema.txt");
     std::string line, relationName;
     bool found = false;
-    std::cout << "Seleccion una relación: ";
+    std::cout << "Seleccion una relacion: ";
     std::cin >> relationName;
     std::cout << std::endl;
 
@@ -109,13 +109,13 @@ bool dataBase::validateInstance(const std::string& schemaLine, const std::string
             continue;
         }
 
-        if (schemaPart == "INT") {
+        if (schemaPart == "int") {
             for (char c : instanceValue) {
                 if (c < '0' || c > '9') return false;
             }
         }
 
-        else if (schemaPart == "FLOAT") {
+        else if (schemaPart == "float") {
 
             bool puntoEncontrado = false;
 
@@ -128,14 +128,14 @@ bool dataBase::validateInstance(const std::string& schemaLine, const std::string
             }
         }
 
-        else if (schemaPart == "CHAR") {
+        else if (schemaPart == "char") {
             if (instanceValue.length() != 1)
                 return false;
         }
 
-        else if (schemaPart == "STR") {}
+        else if (schemaPart == "str") {}
 
-        else if (schemaPart == "BOOL") {
+        else if (schemaPart == "bool") {
             if (!(instanceValue == "0" || instanceValue == "1" ||
                 instanceValue == "true" || instanceValue == "false" ||
                 instanceValue == "TRUE" || instanceValue == "FALSE")) {
