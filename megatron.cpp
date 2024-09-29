@@ -12,7 +12,8 @@ std::string removeChars(const std::string& str, char charToRemove) {
     return result;
 }
 
-bool leerSchema(const std::string& tableName, std::vector<Columna>& columnasDisponibles) { // devuelve las columnas de una tabla x
+//va a devolver un booleano y vamos almacenando las columnas de una tabla x
+bool leerSchema(const std::string& tableName, std::vector<Columna>& columnasDisponibles) { 
     std::ifstream schemaFile(Schema_Dir);
 
     if (!schemaFile.is_open()) {
@@ -195,7 +196,7 @@ bool Megatron::insertTable(const std::string& query) {
     auto valuesBegin = std::sregex_iterator(query.begin(), query.end(), valuesRegex);
     auto valuesEnd = std::sregex_iterator();
 
-    std::ofstream file("db/" + tableName + ".txt", std::ios::app);
+    std::ofstream file(DB_Dir / (tableName + ".txt"), std::ios::app);
     if (!file.is_open()) {
         std::cerr << "No se pudo abrir : db/" << tableName << ".txt" << std::endl;
         return false;
@@ -329,46 +330,7 @@ bool Megatron::cumpleCondicion(const std::vector<std::string>& condiciones, cons
 
             if (columna.nombre == columnaWhere) {
                 bool cumple = false;
-
-                if (columna.tipo == "int") {
-                    try {
-                        int valorInt = std::stoi(valor);
-                        int valorCondicionInt = std::stoi(valorCondicion);
-                        cumple = (operador == "=" && valorInt == valorCondicionInt) ||
-                            (operador == "!=" && valorInt != valorCondicionInt) ||
-                            (operador == "<" && valorInt < valorCondicionInt) ||
-                            (operador == ">" && valorInt > valorCondicionInt) ||
-                            (operador == "<=" && valorInt <= valorCondicionInt) ||
-                            (operador == ">=" && valorInt >= valorCondicionInt);
-                    }
-                    catch (...) {
-                        std::cerr << "Error al convertir valores a INT." << std::endl;
-                        return false;
-                    }
-                }
-                else if (columna.tipo == "float") {
-                    try {
-                        float valorFloat = std::stof(valor);
-                        float valorCondicionFloat = std::stof(valorCondicion);
-                        cumple = (operador == "=" && valorFloat == valorCondicionFloat) ||
-                            (operador == "!=" && valorFloat != valorCondicionFloat) ||
-                            (operador == "<" && valorFloat < valorCondicionFloat) ||
-                            (operador == ">" && valorFloat > valorCondicionFloat) ||
-                            (operador == "<=" && valorFloat <= valorCondicionFloat) ||
-                            (operador == ">=" && valorFloat >= valorCondicionFloat);
-                    }
-                    catch (...) {
-                        std::cerr << "Error al convertir valores a FLOAT." << std::endl;
-                        return false;
-                    }
-                }
-                else if (columna.tipo == "str") {
-                    std::string valorLimpio = std::regex_replace(valor, std::regex(R"(^\s+|\s+$)"), "");
-                    std::string valorCondicionLimpio = std::regex_replace(valorCondicion, std::regex(R"(^\s+|\s+$)"), "");
-                    cumple = (operador == "=" && valorLimpio == valorCondicionLimpio) ||
-                        (operador == "!=" && valorLimpio != valorCondicionLimpio);
-                }
-
+                cumple = evaluarCondicion(operador, valor, valorCondicion, columna.tipo);
                 resultado = (resultado && cumple);
             }
         }
@@ -539,8 +501,8 @@ void Megatron::select(const std::string& query) {
             int colum_size = columnasDisponibles.size();
             for (size_t i = 0; i < colum_size; ++i) {
                 schemaFile << " # " << columnasDisponibles[i].nombre << " # " << columnasDisponibles[i].tipo;
-            }
-            schemaFile.close();
+
+            schemaFile.close();            }
         }
     }
 
