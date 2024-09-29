@@ -47,81 +47,88 @@ bool leerSchema(const std::string& tableName, std::vector<Columna>& columnasDisp
     return false;
 }
 
-void validarData() {}
+bool validarDatos(const std::string& valor, const std::string& tipo) {
 
+    if (valor.empty()) {
+        std::cerr << "Error: el valor no puede estar vacío." << std::endl;
+        return false;
+    }
 
+    if (tipo == "int") {
+        for (char c : valor) {
+            if (!isdigit(c)) {
+                std::cerr << "Error: el valor '" << valor << "' no es un INT válido." << std::endl;
+                return false;
+            }
+        }
+    }
+
+    else if (tipo == "float") {
+        bool puntoEncontrado = false;
+        for (char c : valor) {
+            if (c == '.') {
+                if (puntoEncontrado) {
+                    std::cerr << "Error: el valor '" << valor << "' no es un FLOAT válido." << std::endl;
+                    return false;
+                }
+                puntoEncontrado = true;
+            }
+            else if (!isdigit(c)) {
+                std::cerr << "Error: el valor '" << valor << "' no es un FLOAT válido." << std::endl;
+                return false;
+            }
+        }
+    }
+
+    else if (tipo == "char") {
+        if (valor.length() != 1) {
+            std::cerr << "Error: el valor '" << valor << "' no es un CHAR válido." << std::endl;
+            return false;
+        }
+    }
+
+    else if (tipo == "str") {
+        if (valor.front() != '\'' || valor.back() != '\'') {
+            std::cerr << "Error: el valor '" << valor << "' debe estar entre comillas simples." << std::endl;
+            return false;
+        }
+    }
+
+    else if (tipo == "bool") {
+        if (valor != "0" && valor != "1" && valor != "true" && valor != "false" && valor != "TRUE" && valor != "FALSE") {
+            std::cerr << "Error: el valor '" << valor << "' no es un BOOL válido." << std::endl;
+            return false;
+        }
+    }
+
+    else {
+        std::cerr << "Error: tipo desconocido '" << tipo << "'." << std::endl;
+        return false;
+    }
+
+    return true;
+}
 
 
 bool Megatron::validateInstance(const std::vector<Columna>& columnasDisponibles, const std::vector<std::string>& valoresAInsertar) {
 
     if (columnasDisponibles.size() != valoresAInsertar.size()) {
-        std::cerr << "El número de valores no coincide con el número de columnas." << std::endl;
+        std::cerr << "Error: El número de valores no coincide con el número de columnas." << std::endl;
         return false;
     }
 
     for (int i = 0; i < columnasDisponibles.size(); ++i) {
-
         const std::string& tipo = columnasDisponibles[i].tipo;
         const std::string& valor = valoresAInsertar[i];
 
-        if (valor.empty()) {
-            std::cerr << "Error: el valor para la columna '" << columnasDisponibles[i].nombre << "' no puede estar vacio." << std::endl;
+        if (!validarDatos(valor, tipo)) {
+            std::cerr << "Error en la columna '" << columnasDisponibles[i].nombre << "'." << std::endl;
             return false;
-        }
-
-        if (tipo == "int") {
-            for (char c : valor) {
-                if (!isdigit(c)) {
-                    std::cerr << "Error: el valor '" << valor << "' no es un INT valido para la columna '" << columnasDisponibles[i].nombre << "'." << std::endl;
-                    return false;
-                }
-            }
-        }
-
-        else if (tipo == "float") {
-            bool puntoEncontrado = false;
-            for (char c : valor) {
-                if (c == '.') {
-                    if (puntoEncontrado) {
-                        std::cerr << "Error: el valor '" << valor << "' no es un FLOAT valido para la columna '" << columnasDisponibles[i].nombre << "'." << std::endl;
-                        return false;
-                    }
-                    puntoEncontrado = true;
-                }
-                else if (!isdigit(c)) {
-                    std::cerr << "Error: el valor '" << valor << "' no es un FLOAT valido para la columna '" << columnasDisponibles[i].nombre << "'." << std::endl;
-                    return false;
-                }
-            
-            }
-        }
-
-        else if (tipo == "char") {
-            if (valor.length() != 1) {
-                std::cerr << "Error: el valor '" << valor << "' no es un CHAR valido para la columna '" << columnasDisponibles[i].nombre << "'." << std::endl;
-                return false;
-            }
-        }
-
-        else if (tipo == "str") {
-            if (valor.front() != '\'' || valor.back() != '\'') {
-                std::cerr << "Error: el valor '" << valor << "' debe estar entre comillas simples para la columna '" << columnasDisponibles[i].nombre << "'." << std::endl;
-                return false;
-            }
-        }
-
-        else if (tipo == "bool") {
-            if (valor != "0" && valor != "1" && valor != "true" && valor != "false" && valor != "TRUE" && valor != "FALSE") {
-                std::cerr << "Error: el valor '" << valor << "' no es un BOOL valido para la columna '" << columnasDisponibles[i].nombre << "'." << std::endl;
-                return false;
-            }
         }
     }
 
     return true;
-
 }
-
 
 void Megatron::parseAndExecuteQuery(const std::string& query) {
     std::istringstream iss(query);
@@ -754,11 +761,9 @@ void Megatron::updateTable(const std::string& query) {
         if (cumpleTodas) {
 
             for (size_t i = 0; i < columnasDisponibles.size(); ++i) {
-
                 const auto& columna = columnasDisponibles[i];
-
+                 
                 if (columnasAActualizar.find(columna.nombre) != columnasAActualizar.end()) {
-
                     std::string nuevoValor = columnasAActualizar[columna.nombre];
 
                     if (columna.tipo == "str") {
@@ -775,7 +780,9 @@ void Megatron::updateTable(const std::string& query) {
         }
 
         std::string nuevaFila;
+
         for (size_t i = 0; i < filaValores.size(); ++i) {
+
             nuevaFila += filaValores[i];
             if (i < filaValores.size() - 1) {
                 nuevaFila += "#";
