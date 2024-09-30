@@ -10,12 +10,13 @@
 
 ### 2. Selección de Tablas (Kevin Rodriguez)
 - **Selección completa (*)**: Para  llevar a cabo operaciones como `SELECT *`, obteniendo todas las columnas de una tabla, utilizamos la función **select()** que nos permite imprimir todas las columnas de una tabla en específico, algo a resaltar es que a partir de esto punto para llevara a cabo las consultas se utilizan '**expresiones regulares** para establecer rápidamente un patrón que sigue la query del usuario.
-- **Selección específica por columnas**: Esto se desarrollo posteriormente sobre la misma funcion **select()** y la actualizamos para que permita seleccionar columnas particulares con consultas como `SELECT columna1, columna2 FROM tabla`.
-
+ ![Ejemplo de selección completa](./img/selectAll.png)
+-  **Selección específica por columnas**: Esto se desarrollo posteriormente sobre la misma funcion **select()** y la actualizamos para que permita seleccionar columnas particulares con consultas como `SELECT columna1, columna2 FROM tabla`.	
+![Ejemplo de selección especifica](./img/selectCols.png)
 ### 3. Filtrado con `WHERE` (Kevin Rodriguez)
 - **Cláusula WHERE**: Para llevar a cabo el filtrado de datos específicos implementé la función `cumpleCondicion()` que recibe la condición que se pide cumplir, esta función se apoya de la funcion `evaluarCondicion()` donde se revisa la condición es decir se lleva a cabo las operaciones =,<,>,<=,>=,!= actualmente, de esta manera se simula o se lleva a cabo el`WHERE` .
 - **Funciones clave**: `cumpleCondicion()` para evaluar condiciones y `Select()` para ejecutar consultas con filtrado.
-
+![Ejemplo de sentencia con where](./img/where.png)
 ### 4. Unión de Tablas (Fabricio Villantoy)
 - **Soporte para JOIN**: Permite unir dos o más tablas basadas en columnas compartidas, similar a un `INNER JOIN` en SQL.
 
