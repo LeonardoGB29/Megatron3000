@@ -5,7 +5,12 @@
 ## Tareas
 
 ### 1. Lectura de Datos (Leonardo Gaona)
-- **Lectura del esquema**: Para interpretar el esquema de las tablas, el sistema utiliza un archivo scheme.txt. A través de la función leerSchema(), se leen las columnas y los tipos de datos de cada tabla. Esta función busca la tabla en el esquema y luego carga los nombres y tipos de columnas en un vector.
+- **Menú Principal**: El sistema Megatron 3000 presenta un menú principal que permite a los usuarios interactuar fácilmente con las funcionalidades básicas del gestor de bases de datos. A través de este menú, los usuarios pueden acceder a distintas opciones como la ejecución de consultas SQL simples y la carga de datos en las tablas de la base de datos.
+ ![Menú Principal](./img/menuPrincipal.png)
+
+- **Lectura del esquema**: Para interpretar el esquema de las tablas, el sistema utiliza un archivo scheme.txt. A través de la función leerSchema(), se leen las columnas y los tipos de datos de cada tabla. Esta función busca la tabla en el esquema y luego carga los nombres y tipos de columnas en un vector. 
+ ![Ejemplo de selección completa](./img/selectAll.png)
+
 - **Carga de datos**: Para cargar los datos de las tablas, utilizamos la función leerDatos(), que abre el archivo de datos de una tabla específica y extrae los valores línea por línea, separados por un símbolo específico (por defecto #). Este mecanismo permite manipular los registros de las tablas para realizar operaciones de selección y modificación.
 
 ### 2. Selección de Tablas (Kevin Rodriguez)
