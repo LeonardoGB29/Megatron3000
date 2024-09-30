@@ -292,7 +292,7 @@ void Megatron::createTable(const std::string& query) {
         std::cout << "Se esperaba 'CREATE TABLE'" << std::endl;
     }
 }
-
+//
 bool Megatron::obtenerColumnasYTabla(const std::string& query, std::vector<std::string>& listaColumnas, std::string& tableName) {
     std::regex sqlRegex(R"(SELECT\s+([^FROM]+)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+))?)", std::regex::icase);
     std::smatch match;
@@ -444,7 +444,7 @@ bool Megatron::evaluarCondicion(const std::string& operador, const std::string& 
 }
 
 void Megatron::select(const std::string& query) {
-    std::regex sqlRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+(\w+)(?:\s+JOIN\s+(\w+)\s+ON\s+(\w+\.\w+)\s*=\s*(\w+\.\w+))?(?:\s+WHERE\s+([^|]*))?(?:\s*\|\s*(\w+))?\s*$)");
+    std::regex sqlRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+([\w\s,]+)(?:\s+WHERE\s+([^|]*))?(?:\s*\|\s*(\w+))?\s*$)");
     std::smatch match;
 
     if (!std::regex_match(query, match, sqlRegex)) {
@@ -453,32 +453,42 @@ void Megatron::select(const std::string& query) {
     }
 
     std::string columnas = match[1];
-    std::string tableName = match[2];
-    std::string joinTable, joinLeftColumn, joinRightColumn;
+    std::string tablas = match[2]; // Listado de tablas separadas por coma
     std::string whereCondition;
     std::string name_new_table;
 
-    if (match.size() > 4 && match[3].matched) {
-        /*joinTable = match[3]; // Nombre de la tabla a unir
-        joinLeftColumn = match[4]; // Nombre de la columna en la tabla principal
-        joinRightColumn = match[5]; // Nombre de la columna en la tabla JOIN*/
-        procesarConsultaJoin(query);
-        return;
-    }
-
-    if (match.size() > 6) {
-        whereCondition = match[6];
+    if (match.size() > 3 && match[3].matched) {
+        whereCondition = match[3];
     }
     else {
         whereCondition = "";
     }
 
-    if (match.size() > 7) {
-        name_new_table = match[7];
+    if (match.size() > 4 && match[4].matched) {
+        name_new_table = match[4];
     }
     else {
         name_new_table = "";
     }
+
+    // Separar las tablas
+    std::vector<std::string> listaTablas;
+    std::stringstream ss(tablas);
+    std::string tabla;
+
+    while (std::getline(ss, tabla, ',')) {
+        size_t start = tabla.find_first_not_of(" \t");
+        size_t end = tabla.find_last_not_of(" \t");
+        if (start != std::string::npos && end != std::string::npos) {
+            listaTablas.push_back(tabla.substr(start, end - start + 1));
+        }
+    }
+    if (listaTablas.size() >= 2) {
+        MultipleSelect(query);
+        return;
+    }
+    // si solo hay una tabla asignada en FROM
+    std::string tableName = match[2];
 
     std::vector<Columna> columnasDisponibles;
     if (!leerSchema(tableName, columnasDisponibles)) {
@@ -507,10 +517,10 @@ void Megatron::select(const std::string& query) {
     }
 
     std::vector<std::string> listaColumnas;
-    std::stringstream ss(columnas);
+    std::stringstream ssC(columnas);
     std::string columna;
 
-    while (std::getline(ss, columna, ',')) {
+    while (std::getline(ssC, columna, ',')) {
         size_t start = columna.find_first_not_of(" \t");
         size_t end = columna.find_last_not_of(" \t");
         if (start != std::string::npos && end != std::string::npos) {
@@ -775,122 +785,230 @@ void Megatron::updateTable(const std::string& query) {
 }
 
 
-void Megatron::procesarConsultaJoin(const std::string& query) {
-    //modificación del patrón regex para soportar el JOIN en la consulta
-    std::regex sqlJoinRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+(\w+)\s+JOIN\s+(\w+)\s+ON\s+(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)(?:\s+WHERE\s+([^|]*))?\s*$)");
+void Megatron::MultipleSelect(const std::string& query) {
+    std::regex sqlRegex(R"(^\s*SELECT\s+([^FROM]+)\s+FROM\s+([\w\s,]+)(?:\s+WHERE\s+([^|]*))?(?:\s*\|\s*(\w+))?\s*$)");
     std::smatch match;
 
-    if (!std::regex_match(query, match, sqlJoinRegex)) {
-        std::cout << "Formato de SELECT JOIN inválido." << std::endl;
+    if (!std::regex_match(query, match, sqlRegex)) {
+        std::cout << "Formato de SELECT inválido." << std::endl;
         return;
     }
 
     std::string columnas = match[1];
-    std::string tabla1 = match[2];
-    std::string tabla2 = match[3];
-    std::string aliasTabla1 = match[4];
-    std::string columnaTabla1 = match[5];
-    std::string aliasTabla2 = match[6];
-    std::string columnaTabla2 = match[7];
-    std::string whereCondition = match.size() > 8 ? std::string(match[8]) : "";
+    std::string tablas = match[2];
+    std::string whereCondition;
+    std::string name_new_table;
 
-    //leer esquemas para ambas tablas para obtener las columnas disponibles
+    if (match.size() > 3 && match[3].matched) {
+        whereCondition = match[3];
+    }
+    else {
+        whereCondition = "";
+    }
+
+    if (match.size() > 4 && match[4].matched) {
+        name_new_table = match[4];
+    }
+    else {
+        name_new_table = "";
+    }
+
+    std::vector<std::string> listaTablas;
+    std::stringstream ss(tablas);
+    std::string tabla;
+    while (std::getline(ss, tabla, ',')) {
+        tabla.erase(0, tabla.find_first_not_of(" \t"));
+        tabla.erase(tabla.find_last_not_of(" \t") + 1); 
+        listaTablas.push_back(tabla);
+    }
+
+    if (listaTablas.size() != 2) {
+        std::cout << "Debe especificar exactamente dos tablas en la cláusula FROM." << std::endl;
+        return;
+    }
+
     std::vector<Columna> columnasTabla1, columnasTabla2;
-    if (!leerSchema(tabla1, columnasTabla1)) {
-        std::cerr << "No se encontró la tabla " << tabla1 << " en schema.txt" << std::endl;
-        return;
-    }
-    if (!leerSchema(tabla2, columnasTabla2)) {
-        std::cerr << "No se encontró la tabla " << tabla2 << " en schema.txt" << std::endl;
-        return;
-    }
+    std::vector<std::vector<std::string>> filasTabla1, filasTabla2;
 
-    //encontrar los índices de las columnas para realizar el JOIN
-    int indexColumnaTabla1 = -1, indexColumnaTabla2 = -1;
-    for (size_t i = 0; i < columnasTabla1.size(); ++i) {
-        if (columnasTabla1[i].nombre == columnaTabla1) {
-            indexColumnaTabla1 = static_cast<int>(i);
-            break;
-        }
-    }
-
-    for (size_t j = 0; j < columnasTabla2.size(); ++j) {
-        if (columnasTabla2[j].nombre == columnaTabla2) {
-            indexColumnaTabla2 = static_cast<int>(j);
-            break;
-        }
-    }
-
-    if (indexColumnaTabla1 == -1 || indexColumnaTabla2 == -1) {
-        std::cerr << "No se encontraron las columnas de unión en las tablas correspondientes." << std::endl;
+    if (!leerSchema(listaTablas[0], columnasTabla1) || !leerDatos(listaTablas[0], filasTabla1)) {
+        std::cerr << "No se pudo leer el esquema o los datos de la tabla " << listaTablas[0] << std::endl;
         return;
     }
 
-    //abrir los archivos de las tablas
-    std::filesystem::path pathTabla1 = std::filesystem::current_path().parent_path() / "db" / (tabla1 + ".txt");
-    std::filesystem::path pathTabla2 = std::filesystem::current_path().parent_path() / "db" / (tabla2 + ".txt");
-
-    std::ifstream archivoTabla1(pathTabla1);
-    std::ifstream archivoTabla2(pathTabla2);
-
-    if (!archivoTabla1.is_open()) {
-        std::cerr << "No se pudo abrir el archivo de la tabla: " << tabla1 << std::endl;
-        return;
-    }
-    if (!archivoTabla2.is_open()) {
-        std::cerr << "No se pudo abrir el archivo de la tabla: " << tabla2 << std::endl;
+    if (!leerSchema(listaTablas[1], columnasTabla2) || !leerDatos(listaTablas[1], filasTabla2)) {
+        std::cerr << "No se pudo leer el esquema o los datos de la tabla " << listaTablas[1] << std::endl;
         return;
     }
 
-    // Procesar el JOIN entre las tablas línea por línea
-    std::string fila1, fila2;
-    while (std::getline(archivoTabla1, fila1)) {
-        std::stringstream ssFila1(fila1);
-        std::vector<std::string> valoresFila1;
-        std::string valor1;
+    std::vector<std::string> nombresColumnasTabla1;
+    for (const auto& col : columnasTabla1) {
+        nombresColumnasTabla1.push_back(listaTablas[0] + "." + col.nombre);
+    }
 
-        while (std::getline(ssFila1, valor1, '#')) {
-            valor1.erase(valor1.find_last_not_of(" \t") + 1);
-            valor1.erase(0, valor1.find_first_not_of(" \t"));
-            valoresFila1.push_back(valor1);
-        }
+    std::vector<std::string> nombresColumnasTabla2;
+    for (const auto& col : columnasTabla2) {
+        nombresColumnasTabla2.push_back(listaTablas[1] + "." + col.nombre);
+    }
 
-        std::string valorUnionTabla1 = valoresFila1[indexColumnaTabla1];
+    std::vector<std::vector<std::string>> combinacionesFilas;
 
-        archivoTabla2.clear();
-        archivoTabla2.seekg(0, std::ios::beg);
+    for (const auto& fila1 : filasTabla1) {
+        for (const auto& fila2 : filasTabla2) {
+            std::vector<std::string> filaCombinada;
 
-        while (std::getline(archivoTabla2, fila2)) {
-            std::stringstream ssFila2(fila2);
-            std::vector<std::string> valoresFila2;
-            std::string valor2;
-
-            while (std::getline(ssFila2, valor2, '#')) {
-                valor2.erase(valor2.find_last_not_of(" \t") + 1);
-                valor2.erase(0, valor2.find_first_not_of(" \t"));
-                valoresFila2.push_back(valor2);
+            for (const auto& valor : fila1) {
+                filaCombinada.push_back(valor); 
             }
 
-            std::string valorUnionTabla2 = valoresFila2[indexColumnaTabla2];
-
-            if (valorUnionTabla1 == valorUnionTabla2) {
-                std::string filaUnida;
-                for (const auto& val : valoresFila1) {
-                    filaUnida += val + " ";
-                }
-                for (const auto& val : valoresFila2) {
-                    filaUnida += val + " ";
-                }
-
-                //evaluar WHERE 
-                if (whereCondition.empty() || cumpleCondicion(whereCondition, valoresFila1, columnasTabla1, valoresFila2, columnasTabla2, tabla1, tabla2)) {
-                    //std::cout << "where: " << whereCondition << std::endl;
-                    std::cout << filaUnida << std::endl;
-                }
+            for (const auto& valor : fila2) {
+                filaCombinada.push_back(valor); 
             }
+
+            combinacionesFilas.push_back(filaCombinada);
         }
     }
 
-    archivoTabla1.close();
-    archivoTabla2.close();
+    std::vector<std::vector<std::string>> filasFiltradas;
+    for (const auto& filaCombinada : combinacionesFilas) {
+        if (whereCondition.empty() || cumpleCondicion(whereCondition, filaCombinada, { nombresColumnasTabla1, nombresColumnasTabla2 }, listaTablas)) {
+            filasFiltradas.push_back(filaCombinada);
+        }
+    }
+
+    if (filasFiltradas.empty()) {
+        std::cout << "No se encontraron filas que cumplan la condición WHERE especificada." << std::endl;
+    }
+    else {
+        for (const auto& fila : filasFiltradas) {
+            for (const auto& valor : fila) {
+                std::cout << valor << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+}
+
+bool Megatron::cumpleCondicion(const std::string& whereCondition,
+    const std::vector<std::string>& filaCombinada,
+    const std::vector<std::vector<std::string>>& nombresColumnas,
+    const std::vector<std::string>& listaTablas) {
+
+    std::regex conditionRegex(R"((\w+\.\w+)\s*(=|!=|<|>|<=|>=)\s*('[^']*'|[^; ]+))");
+    std::smatch match;
+
+    bool resultadoGeneral = true;
+    std::string logicalOperator = "AND";
+
+    std::istringstream stream(whereCondition);
+    std::string token;
+    std::vector<std::string> condiciones;
+
+    while (stream >> token) {
+        if (token == "AND" || token == "OR") {
+            condiciones.push_back(token);
+        }
+        else {
+            std::string subCondition = token;
+            while (stream.peek() != ' ' && stream.peek() != EOF) {
+                stream >> token;
+                subCondition += " " + token;
+            }
+            condiciones.push_back(subCondition);
+        }
+    }
+
+    for (const auto& cond : condiciones) {
+        if (cond == "AND" || cond == "OR") {
+            logicalOperator = cond;
+            continue;
+        }
+
+        if (!std::regex_search(cond, match, conditionRegex)) {
+            std::cout << "Condición WHERE inválida: " << cond << std::endl;
+            return false;
+        }
+
+        std::string column = match[1];
+        std::string operador = match[2];     
+        std::string valorCondicion = match[3]; 
+
+        std::string nombreTabla = column.substr(0, column.find('.'));
+        std::string nombreColumna = column.substr(column.find('.') + 1);
+
+        int indiceColumna = -1;
+        for (size_t i = 0; i < listaTablas.size(); ++i) {
+            if (listaTablas[i] == nombreTabla) {
+                for (size_t j = 0; j < nombresColumnas[i].size(); ++j) {
+                    if (nombresColumnas[i][j] == column) {
+                        std::cout << nombresColumnas[i][j] << std::endl;
+
+                        indiceColumna = (i == 0) ? j : (nombresColumnas[0].size() + j);
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        if (indiceColumna == -1) {
+            std::cerr << "Columna no encontrada: " << column << std::endl;
+            return false;
+        }
+
+        std::string valor = filaCombinada[indiceColumna];
+
+        // Verificar si el valor de condición tiene comillas (es un string)
+        if (valorCondicion[0] == '\'' && valorCondicion[valorCondicion.size() - 1] == '\'') {
+            valorCondicion = valorCondicion.substr(1, valorCondicion.size() - 2); // Quitar comillas
+        }
+
+        std::string tipo = (valor[0] == '\'') ? "str" : (std::all_of(valor.begin(), valor.end(), ::isdigit) ? "int" : "str");
+
+        bool subResult = evaluarCondicion(operador, valor, valorCondicion, tipo);
+
+        if (logicalOperator == "AND") {
+            resultadoGeneral = resultadoGeneral && subResult;
+        }
+        else if (logicalOperator == "OR") {
+            resultadoGeneral = resultadoGeneral || subResult;
+        }
+    }
+
+    return resultadoGeneral;
+}
+
+bool Megatron::leerDatos(const std::string& nombreTabla, std::vector<std::vector<std::string>>& filasTabla) {
+    std::filesystem::path table_Dir = std::filesystem::current_path().parent_path() / "db" / (nombreTabla + ".txt");
+    std::ifstream archivo(table_Dir);
+
+    
+    if (!archivo.is_open()) {
+        std::cerr << "Error al abrir el archivo: " << table_Dir << std::endl;
+        return false;  
+    }
+
+    std::string linea;
+
+    while (std::getline(archivo, linea)) {
+        std::stringstream ss(linea);
+        std::string valor;
+        std::vector<std::string> fila;  
+
+        while (std::getline(ss, valor, '#')) {
+            size_t start = valor.find_first_not_of(" \t");
+            size_t end = valor.find_last_not_of(" \t");
+            if (start != std::string::npos && end != std::string::npos) {
+                fila.push_back(valor.substr(start, end - start + 1));
+            }
+            else {
+                fila.push_back(""); 
+            }
+        }
+
+        filasTabla.push_back(fila);
+    }
+
+    archivo.close(); 
+    return true;  
 }

@@ -3,3 +3,6 @@ address#address_id#int#address#str#postal_code#int#phone#int
 film#film_id#int#title#str#description#str#release_year#int#length#int#rating#str
 actor#actor_id#int#first_name#str#last_name#str
 film_actor#actor_id#int#film_id#int
+students#student_id#int#name#str#depts#str
+depts#dept_id#int#name#str#office#str
+nueva # customer_id # int

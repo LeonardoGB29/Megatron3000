@@ -1,0 +1,3 @@
+101#CS#Building A, Room 101
+102#Math#Building B, Room 205
+103#Physics#Building C, Room 301
