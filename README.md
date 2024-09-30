@@ -5,8 +5,8 @@
 ## Tareas
 
 ### 1. Lectura de Datos (Leonardo Gaona)
-- **Lectura del esquema**: Interpreta el esquema de las tablas a partir de `scheme.txt` para entender las columnas y tipos de datos.
-- **Carga de datos**: Lee los datos de las tablas almacenadas en archivos `.txt`.
+- **Lectura del esquema**: Para interpretar el esquema de las tablas, el sistema utiliza un archivo scheme.txt. A través de la función leerSchema(), se leen las columnas y los tipos de datos de cada tabla. Esta función busca la tabla en el esquema y luego carga los nombres y tipos de columnas en un vector.
+- **Carga de datos**: Para cargar los datos de las tablas, utilizamos la función leerDatos(), que abre el archivo de datos de una tabla específica y extrae los valores línea por línea, separados por un símbolo específico (por defecto #). Este mecanismo permite manipular los registros de las tablas para realizar operaciones de selección y modificación.
 
 ### 2. Selección de Tablas (Kevin Rodriguez)
 - **Selección completa (*)**: Para  llevar a cabo operaciones como `SELECT *`, obteniendo todas las columnas de una tabla, utilizamos la función **select()** que nos permite imprimir todas las columnas de una tabla en específico, algo a resaltar es que a partir de esto punto para llevara a cabo las consultas se utilizan '**expresiones regulares** para establecer rápidamente un patrón que sigue la query del usuario.
@@ -23,7 +23,7 @@
 - **Filtrado post-unión**: Realiza selecciones con condiciones después de unir tablas.
 
 ### 6. Actualización de Valores (Leonardo Gaona)
-- **Actualización de datos**: Modifica valores en las tablas existentes a través de consultas `UPDATE`.
+- **Actualización de datos**: La actualización de registros se implementa a través de la función updateTable(). Este método analiza las consultas UPDATE y realiza la modificación de los valores de acuerdo con las condiciones WHERE especificadas.
 
 ### 7. Guardar resultados (Fabricio Villantoy)
 - **Persistencia de resultados**: Guarda el resultado de una consulta `SELECT` o `JOIN` en un archivo de salida.
